@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tesla 雪山 往復SOCシミュレーター</title>
+
+<style>
+:root {
+  --tesla-red: #e82127;
+  --glass: rgba(255,255,255,0.78);
+  --text-main: #111;
+  --text-sub: #555;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text-main);
+}
+
+/* ===== 背景 ===== */
+body {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: inherit;
+  background-size: cover;
+  background-position: center;
+  z-index: -2;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(255,255,255,0.28);
+  z-index: -1;
+}
+
+/* ===== レイアウト ===== */
+.container {
+  height: 100svh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 14px;
+}
+
+.card {
+  width: 100%;
+  max-width: 900px;
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  border-radius: 22px;
+  padding: 18px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+  display: flex;
+  gap: 18px;
+}
+
+.left, .right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ===== ヘッダー ===== */
+.header h1 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.header span {
+  color: var(--tesla-red);
+}
+
+/* ===== フォーム ===== */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+label {
+  font-size: 11px;
+  color: var(--text-sub);
+}
+
+input, select {
+  width: 100%;
+  margin-top: 4px;
+  padding: 10px;
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--tesla-red);
+}
+
+/* ===== ボタン ===== */
+button {
+  width: 100%;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--tesla-red);
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+/* ===== 結果 ===== */
+.result {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: 0.35s ease;
+  font-size: 14px;
+}
+
+.result.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.result-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.judge {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.ok {
+  background: #e8f7ee;
+  color: #1f8f4a;
+}
+
+.ng {
+  background: #fdecec;
+  color: #c62828;
+}
+
+/* ===== SOC ===== */
+.soc-box {
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.85);
+}
+
+.soc-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.soc-bar-bg {
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+  background: #ddd;
+  overflow: hidden;
+}
+
+.soc-bar {
+  height: 100%;
+  width: 0%;
+  transition: width 0.6s ease;
+}
+
+.soc-good { background: linear-gradient(90deg, #1abc9c, #2ecc71); }
+.soc-mid  { background: linear-gradient(90deg, #f1c40f, #f39c12); }
+.soc-low  { background: linear-gradient(90deg, #e67e22, #e74c3c); }
+
+/* ===== モバイル ===== */
+@media (max-width: 720px) {
+  .card { flex-direction: column; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <div class="card">
+
+    <div class="left">
+      <div class="header">
+        <h1><span>Tesla</span> 航続距離シミュレーター</h1>
+      </div>
+
+      <div class="form-grid">
+        <div>
+          <label>車種</label>
+          <select id="model">
+            <option value="S">Model S</option>
+            <option value="3">Model 3</option>
+            <option value="X">Model X</option>
+            <option value="Y" selected>Model Y (MY '25)</option>
+          </select>
+        </div>
+
+        <div><label>外気温（℃）</label><input type="number" id="temp" value="20"></div>
+        <div><label>平均車速（km/h）</label><input type="number" id="speed" value="60"></div>
+        <div><label>出発SOC（%）</label><input type="number" id="socStart" value="100"></div>
+        <div><label>片道距離（km）</label><input type="number" id="distance" value="180"></div>
+        <div><label>標高差（m）</label><input type="number" id="elevation" value="1000"></div>
+
+        <div>
+          <label>タイヤ</label>
+          <select id="tire">
+            <option value="summer">夏タイヤ(19inch)</option>
+            <option value="winter">スタッドレス(20inch)</option>
+          </select>
+        </div>
+      </div>
+
+      <button onclick="calc()">シミュレーションする</button>
+    </div>
+
+    <div class="right">
+      <div class="result" id="result"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const BG = {
+  summer: "https://cdn-ak.f.st-hatena.com/images/fotolife/K/Kevin_J_stock/20260210/20260210213232.jpg",
+  winter: "https://cdn-ak.f.st-hatena.com/images/fotolife/K/Kevin_J_stock/20260210/20260210214807.jpg"
+};
+
+function setBackground() {
+  document.body.style.backgroundImage = `url('${BG[tire.value]}')`;
+}
+tire.addEventListener("change", setBackground);
+setBackground();
+
+/* ===== 計算ロジック ===== */
+function calc() {
+
+  /* ★ 車種チェック */
+  if (model.value !== "Y") {
+    result.innerHTML = `
+      <div class="judge ng">
+        選択中の車種は現在このシミュレーターでは計算できません。<br>
+        <small>※ 対応車種：Model Y (MY '25)</small>
+      </div>
+    `;
+    result.classList.add("show");
+    return;
+  }
+
+  const speed = +speedInput.value;
+  if (speed === 0) {
+    result.innerHTML = `<div class="judge ng">車速0km/hのため計算不可</div>`;
+    result.classList.add("show");
+    return;
+  }
+
+  const temp = +tempInput.value;
+  const socStart = +socStartInput.value / 100;
+  const distance = +distanceInput.value;
+  const elevation = +elevationInput.value;
+  const tireType = tire.value;
+
+  const baseRange = tireType === "summer" ? 525 : 485;
+  const tempPenalty = Math.max(0, 25 - temp) * 0.0015;
+  const speedPenalty = speed > 60 ? 0.00015 * Math.pow(speed - 60, 2) : 0;
+
+  const elevPenaltyOut = elevation > 0 ? (elevation / 1000) * 0.15 : 0;
+  const socAfterOut = socStart - (distance / baseRange) * (1 + tempPenalty + speedPenalty + elevPenaltyOut);
+
+  let socUsedBack = (distance / baseRange) * (1 + tempPenalty + speedPenalty);
+  if (elevation > 0) socUsedBack -= (elevation / 1000 * 50) / baseRange;
+  const socEnd = Math.max(0, socAfterOut - socUsedBack);
+
+  const rangeOut = Math.max(0, socAfterOut * baseRange / (1 + tempPenalty + speedPenalty));
+  const rangeBack = Math.max(0, socEnd * baseRange / (1 + tempPenalty + speedPenalty));
+
+  const continuousRange = distance * 2 + rangeBack;
+
+  result.innerHTML = `
+    <div class="result-row">
+      <span>一回あたりの連続航続距離（登り込み）</span>
+      <strong>${continuousRange.toFixed(0)} km</strong>
+    </div>
+
+    <div class="result-row"><span>往路到着SOC</span><strong>${(socAfterOut*100).toFixed(1)}%</strong></div>
+    <div class="result-row"><span>復路帰着SOC</span><strong>${(socEnd*100).toFixed(1)}%</strong></div>
+
+    <div class="soc-box">
+      <div class="soc-header">
+        <span>往路到着</span>
+        <strong>${(socAfterOut*100).toFixed(1)}% ｜ ${rangeOut.toFixed(0)} km</strong>
+      </div>
+      <div class="soc-bar-bg"><div class="soc-bar" id="socOut"></div></div>
+    </div>
+
+    <div class="soc-box">
+      <div class="soc-header">
+        <span>復路帰着</span>
+        <strong>${(socEnd*100).toFixed(1)}% ｜ ${rangeBack.toFixed(0)} km</strong>
+      </div>
+      <div class="soc-bar-bg"><div class="soc-bar" id="socBack"></div></div>
+    </div>
+
+    <div class="judge ${socEnd > 0 ? "ok" : "ng"}">
+      ${socEnd > 0 ? "⭕ 往復可能" : "❌ 途中充電が必要"}
+    </div>
+  `;
+
+  result.classList.add("show");
+  updateBar("socOut", socAfterOut);
+  updateBar("socBack", socEnd);
+}
+
+function updateBar(id, soc) {
+  const bar = document.getElementById(id);
+  const pct = Math.max(0, Math.min(100, soc * 100));
+  bar.style.width = pct + "%";
+  bar.className = "soc-bar " + (pct >= 50 ? "soc-good" : pct >= 20 ? "soc-mid" : "soc-low");
+}
+
+const tempInput = temp;
+const speedInput = speed;
+const socStartInput = socStart;
+const distanceInput = distance;
+const elevationInput = elevation;
+</script>
+
+</body>
+</html>
